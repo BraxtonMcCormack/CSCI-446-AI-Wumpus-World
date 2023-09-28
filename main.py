@@ -28,25 +28,31 @@ class WumpusWorld:
         else:
             raise ValueError("Invalid header format in the cave file.")
 
-        self.world = [line.strip().split(',') for line in lines[1:]]
+        # Split each line using '],[' as the delimiter
+        self.world = [line.strip().strip('[[').strip(']]').split('],[') for line in lines[1:]]
+
 
     def find_wumpus_positions(self):
         wumpus_positions = []
         for i in range(self.cave_size):
             for j in range(self.cave_size):
-                if 'wumpus' in self.world[i][j]:
-                    wumpus_positions.append((i, j))
+                if i < len(self.world) and j < len(self.world[i]):
+                    cell_contents = self.world[i][j]
+                    if cell_contents and any('wumpus' in cell for cell in cell_contents):
+                        wumpus_positions.append((i, j))
         return wumpus_positions
 
     def is_safe(self, x, y):
-        if x < 1 or x > self.cave_size or y < 1 or y > self.cave_size:
+        # Adjust the agent's position to match Python's 0-based indexing
+        x -= 1
+        y -= 1
+
+        if x < 0 or x >= self.cave_size or y < 0 or y >= self.cave_size:
             return False
-        if 'pit' in self.world[self.cave_size - x][y - 1]:  # Flip the coordinate system
-            self.pits_fallen += 1
+
+        if 'pit' in self.world[x][y] or 'wumpus' in self.world[x][y]:
             return False
-        if 'wumpus' in self.world[self.cave_size - x][y - 1]:  # Flip the coordinate system
-            self.wumpus_kills += 1
-            return False
+
         return True
 
     def print_cave(self):
@@ -58,7 +64,7 @@ class WumpusWorld:
         while True:
             self.cells_explored += 1
             self.print_cave()
-            print(f"Agent's position: {self.agent_pos}")
+            print(f"Agent's position: ({self.agent_pos[1]}, {self.agent_pos[0]})")
             print(f"Arrows left: {self.num_arrows}")
             print(f"Gold found: {self.gold_found}")
             print(f"Wumpus killed: {self.wumpus_killed}")
@@ -80,7 +86,6 @@ class WumpusWorld:
                 print("Agent detects a stench.")
 
             action = input("Enter 'w' to move up, 'a' to move left, 's' to move down, 'd' to move right, 'shoot' to shoot an arrow, or 'q' to quit: ").lower()
-            print("====================")
 
             if action == 'q':
                 print("Agent quit. Game over.")
