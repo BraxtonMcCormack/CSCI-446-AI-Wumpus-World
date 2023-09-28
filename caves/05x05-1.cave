@@ -1,0 +1,6 @@
+Cave Size: 5x5, Number of Wumpus: 1, Number of safe: 24
+[['safe'], ['safe'],['safe'],['safe'],['safe', 'stench']]
+[['safe'],['safe'],['safe'],['safe', 'stench'],['wumpus']]
+[['safe'],['safe'],['safe'],['safe'],['safe', 'stench']]
+[['safe', 'gold', 'glimmer'],['safe'],['safe'],['safe'],['safe']]
+[['safe'],['safe'],['safe'],['safe'],['safe']]
