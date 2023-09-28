@@ -43,16 +43,16 @@ class WumpusWorld:
         return wumpus_positions
 
     def is_safe(self, x, y):
-        # Adjust the agent's position to match Python's 0-based indexing
-        x -= 1
-        y -= 1
-
-        if x < 0 or x >= self.cave_size or y < 0 or y >= self.cave_size:
+        if x < 1 or x > self.cave_size or y < 1 or y > self.cave_size:
             return False
 
-        if 'pit' in self.world[x][y] or 'wumpus' in self.world[x][y]:
+        # Adjust the indexing to match the 0-based index in Python lists
+        if 'pit' in self.world[self.cave_size - x][y - 1]:  # Flip the coordinate system
+            self.pits_fallen += 1
             return False
-
+        if 'wumpus' in self.world[self.cave_size - x][y - 1]:  # Flip the coordinate system
+            self.wumpus_kills += 1
+            return False
         return True
 
     def print_cave(self):
@@ -86,6 +86,7 @@ class WumpusWorld:
                 print("Agent detects a stench.")
 
             action = input("Enter 'w' to move up, 'a' to move left, 's' to move down, 'd' to move right, 'shoot' to shoot an arrow, or 'q' to quit: ").lower()
+            print("=============================================")
 
             if action == 'q':
                 print("Agent quit. Game over.")
