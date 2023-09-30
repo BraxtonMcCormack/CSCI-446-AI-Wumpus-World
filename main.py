@@ -3,153 +3,175 @@ import random
 
 class WumpusWorld:
     def __init__(self, filename):
-        self.load_world(filename)
-        self.agent_pos = (1, 1)  # Start from (1, 1) at the bottom left
-        self.num_arrows = self.num_wumpus
-        self.wumpus_positions = self.find_wumpus_positions()
-        self.gold_found = 0
+        self.board = []
+        self.arrows = 0
+        self.gold_found = False
         self.wumpus_killed = 0
-        self.pits_fallen = 0
+        self.pit_falls = 0
         self.wumpus_kills = 0
-        self.cells_explored = 0
+        self.total_cells_explored = 0
+        self.load_board(filename)
 
-    def load_world(self, filename):
+        # Set the initial agent position to the bottom-left corner
+        self.agent_position = (len(self.board) - 1, 0)
+        self.scent = False
+        self.breeze = False
+
+    def load_board(self, filename):
         with open(filename, 'r') as file:
             lines = file.readlines()
+            for i, line in enumerate(reversed(lines)):  # Reverse lines to make the bottom-left corner (0, 0)
+                row = line.strip()[2:-2]  # Remove outer brackets and leading/trailing spaces
+                cell_data = row.split("],[")
+                row_data = []
+                for cell in cell_data:
+                    flags = cell.split(",")
+                    cell_flags = [flag.strip(" '") for flag in flags]
+                    if 'wumpus' in cell_flags:
+                        self.arrows += 1
+                    row_data.append(cell_flags)
+                self.board.insert(0, row_data)  # Insert at the beginning of the board
 
-        header = lines[0].strip()
-        # Extract values using regular expressions
-        import re
-        match = re.match(r'Cave Size: (\d+)x(\d+), Number of Wumpus: (\d+), Number of safe: (\d+)', header)
-        if match:
-            self.cave_size = int(match.group(1))
-            self.num_wumpus = int(match.group(3))
-            self.num_safe = int(match.group(4))
+    def print_board(self):
+        for i in range(len(self.board)):
+            for j in range(len(self.board[i])):
+                if (i, j) == self.agent_position:
+                    print('[a]', end=' ')
+                elif 'gold' in self.board[i][j] and not self.gold_found:
+                    print('[G]', end=' ')
+                elif 'pit' in self.board[i][j]:
+                    print('[o]', end=' ')
+                elif 'wumpus' in self.board[i][j]:
+                    print('[W]', end=' ')
+                elif 'stench' in self.board[i][j] and self.scent:
+                    print('[S]', end=' ')
+                elif 'breeze' in self.board[i][j] and self.breeze:
+                    print('[B]', end=' ')
+                elif 'safe' in self.board[i][j] and len(self.board[i][j]) == 1:
+                    print('[ ]', end=' ')
+                else:
+                    print('[W]', end=' ')
+            print()  # Move to the next row
+
+    def move(self, direction):
+        x, y = self.agent_position
+        if direction == "w" and x > 0:
+            x -= 1
+        elif direction == "s" and x < len(self.board) - 1:
+            x += 1
+        elif direction == "a" and y > 0:
+            y -= 1
+        elif direction == "d" and y < len(self.board[self.agent_position[0]]) - 1:
+            y += 1
+        
+        self.agent_position = (x, y)
+        self.total_cells_explored += 1
+
+        # Check for breeze and stench in the new cell
+        self.scent = 'stench' in self.board[x][y]
+        self.breeze = 'breeze' in self.board[x][y]
+
+        if 'gold' in self.board[x][y]:
+            self.gold_found = True
+
+        if 'pit' in self.board[x][y]:
+            self.pit_falls += 1
+            # End the game if the agent falls into a pit
+            print("You fell into a pit! Game over.")
+            self.print_board()
+            return True
+
+        if 'wumpus' in self.board[x][y]:
+            # End the game if the agent encounters a wumpus
+            if self.arrows > 0:
+                print("You were killed by a wumpus! Game over.")
+                self.arrows -= 1
+                self.wumpus_kills += 1
+                self.board[x][y].remove('wumpus')
+                self.agent_position = (len(self.board) - 1, 0)  # Reset agent position
+                self.scent = False  # Reset scent
+                self.breeze = False  # Reset breeze
+            else:
+                print("You were killed by a wumpus, and you're out of arrows! Game over.")
+                self.print_board()
+                return True
+
+        return False
+
+    def shoot(self, direction):
+        x, y = self.agent_position
+
+        if direction == "w":
+            for i in range(x, -1, -1):
+                if 'wumpus' in self.board[i][y]:
+                    self.board[i][y].remove('wumpus')
+                    print("You hear a scream! You killed a wumpus!")
+                    self.wumpus_killed += 1
+                    break
+        elif direction == "s":
+            for i in range(x, len(self.board)):
+                if 'wumpus' in self.board[i][y]:
+                    self.board[i][y].remove('wumpus')
+                    print("You hear a scream! You killed a wumpus!")
+                    self.wumpus_killed += 1
+                    break
+        elif direction == "a":
+            for j in range(y, -1, -1):
+                if 'wumpus' in self.board[x][j]:
+                    self.board[x][j].remove('wumpus')
+                    print("You hear a scream! You killed a wumpus!")
+                    self.wumpus_killed += 1
+                    break
+        elif direction == "d":
+            for j in range(y, len(self.board[i])):
+                if 'wumpus' in self.board[x][j]:
+                    self.board[x][j].remove('wumpus')
+                    print("You hear a scream! You killed a wumpus!")
+                    self.wumpus_killed += 1
+                    break
+
+    def random_move(self):
+        directions = ['w', 'a', 's', 'd']
+        safe_moves = []
+        for direction in directions:
+            x, y = self.agent_position
+            if direction == "w" and x > 0:
+                x -= 1
+            elif direction == "s" and x < len(self.board) - 1:
+                x += 1
+            elif direction == "a" and y > 0:
+                y -= 1
+            elif direction == "d" and y < len(self.board[self.agent_position[0]]) - 1:
+                y += 1
+
+            if 'pit' not in self.board[x][y] and 'wumpus' not in self.board[x][y]:
+                safe_moves.append(direction)
+
+        if safe_moves:
+            return random.choice(safe_moves)
         else:
-            raise ValueError("Invalid header format in the cave file.")
-
-        # Split each line using '],[' as the delimiter
-        self.world = [line.strip().strip('[[').strip(']]').split('],[') for line in lines[1:]]
-
-
-    def find_wumpus_positions(self):
-        wumpus_positions = []
-        for i in range(self.cave_size):
-            for j in range(self.cave_size):
-                if i < len(self.world) and j < len(self.world[i]):
-                    cell_contents = self.world[i][j]
-                    if cell_contents and any('wumpus' in cell for cell in cell_contents):
-                        wumpus_positions.append((i, j))
-        return wumpus_positions
-
-    def is_safe(self, x, y):
-        if x < 1 or x > self.cave_size or y < 1 or y > self.cave_size:
-            return False
-
-        # Adjust the indexing to match the 0-based index in Python lists
-        if 'pit' in self.world[self.cave_size - x][y - 1]:  # Flip the coordinate system
-            self.pits_fallen += 1
-            return False
-        if 'wumpus' in self.world[self.cave_size - x][y - 1]:  # Flip the coordinate system
-            self.wumpus_kills += 1
-            return False
-        return True
-
-    def print_cave(self):
-        for row in self.world:
-            print(' '.join([cell if cell else ' ' for cell in row]))
-        print()
+            return None
 
     def play_game(self):
-        while True:
-            self.cells_explored += 1
-            self.print_cave()
-            print(f"Agent's position: ({self.agent_pos[1]}, {self.agent_pos[0]})")
-            print(f"Arrows left: {self.num_arrows}")
-            print(f"Gold found: {self.gold_found}")
-            print(f"Wumpus killed: {self.wumpus_killed}")
-            print(f"Pits fallen into: {self.pits_fallen}")
-            print(f"Wumpus kills: {self.wumpus_kills}")
-            print(f"Total cells explored: {self.cells_explored}")
-
-            if 'gold' in self.world[self.cave_size - self.agent_pos[0]][self.agent_pos[1] - 1]:  # Flip the coordinate system
-                print("Agent found the gold! You win!")
-                self.gold_found += 1
-                break
-
-            breeze = 'breeze' in self.world[self.cave_size - self.agent_pos[0]][self.agent_pos[1] - 1]  # Flip the coordinate system
-            stench = 'stench' in self.world[self.cave_size - self.agent_pos[0]][self.agent_pos[1] - 1]  # Flip the coordinate system
-
-            if breeze:
-                print("Agent detects a breeze.")
-            if stench:
-                print("Agent detects a stench.")
-
-            action = input("Enter 'w' to move up, 'a' to move left, 's' to move down, 'd' to move right, 'shoot' to shoot an arrow, or 'q' to quit: ").lower()
-            print("=============================================")
+        while not self.gold_found:
+            self.print_board()
+            action = input("Enter 'WASD' to move or 'S' to shoot an arrow (Q to quit): ").lower()
 
             if action == 'q':
-                print("Agent quit. Game over.")
+                print("Quitting the game.")
                 break
-            elif action == 'shoot':
-                if self.num_arrows > 0:
-                    direction = input("Enter 'w' to shoot up, 'a' to shoot left, 's' to shoot down, 'd' to shoot right: ").lower()
-                    if direction in ('w', 'a', 's', 'd'):
-                        if self.shoot_arrow(direction):
-                            print("Agent shot a wumpus! You hear a squeal.")
-                            self.wumpus_killed += 1
-                    else:
-                        print("Invalid direction for shooting.")
-                else:
-                    print("No arrows left.")
-            elif action in ('w', 'a', 's', 'd'):
-                x, y = self.agent_pos
-                if action == 'w':
-                    x += 1  # Move up
-                elif action == 'a':
-                    y -= 1  # Move left
-                elif action == 's':
-                    x -= 1  # Move down
-                elif action == 'd':
-                    y += 1  # Move right
 
-                # Check if the new position is within bounds, and if not, bounce back and inform the player
-                if x < 1 or x > self.cave_size or y < 1 or y > self.cave_size:
-                    print("Agent hit a wall. Bouncing back.")
-                    x, y = self.agent_pos
+            if action in ['w', 'a', 's', 'd']:
+                if self.move(action):
+                    break
+            elif action == 's' and self.arrows > 0:
+                direction = input("Enter direction to shoot (W, A, S, D): ").lower()
+                self.arrows -= 1
+                self.shoot(direction)
 
-                if self.is_safe(x, y):
-                    self.agent_pos = (x, y)
-            else:
-                print("Invalid action.")
-
-    def shoot_arrow(self, direction):
-        x, y = self.agent_pos
-        if direction == 'w':
-            for i in range(x, -1, -1):
-                if (i, y) in self.wumpus_positions:
-                    self.wumpus_positions.remove((i, y))
-                    self.num_arrows -= 1
-                    return True
-        elif direction == 'a':
-            for j in range(y, -1, -1):
-                if (x, j) in self.wumpus_positions:
-                    self.wumpus_positions.remove((x, j))
-                    self.num_arrows -= 1
-                    return True
-        elif direction == 's':
-            for i in range(x, self.cave_size):
-                if (i, y) in self.wumpus_positions:
-                    self.wumpus_positions.remove((i, y))
-                    self.num_arrows -= 1
-                    return True
-        elif direction == 'd':
-            for j in range(y, self.cave_size):
-                if (x, j) in self.wumpus_positions:
-                    self.wumpus_positions.remove((x, j))
-                    self.num_arrows -= 1
-                    return True
-        return False
+        if self.gold_found:
+            self.print_board()
+            print("You found the gold! You win!")
 
 if __name__ == "__main__":
     filename = os.path.join('caves', '05x05-1.cave')
