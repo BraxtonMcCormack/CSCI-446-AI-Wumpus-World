@@ -6,6 +6,7 @@ class WumpusWorld:
         self.cave = None
         self.num_safe = 0
         self.num_wumpus = 0
+        self.num_arrows = 0
         self.cave_size = 0
         self.agent_x = 0
         self.agent_y = 0
@@ -179,43 +180,35 @@ class WumpusWorld:
 
     def shoot_left(self):
         if not self.game_over:
-            wumpus_count = 0
             for x in range(self.agent_x - 1, -1, -1):
                 if 'wumpus' in self.cave[self.agent_y][x]:
-                    wumpus_count += 1
                     self.update_cell(x, self.agent_y, 'wall')
-                    break  # Stop shooting when the first wumpus is hit
-            return wumpus_count
+                    return True
+            return False
 
     def shoot_up(self):
         if not self.game_over:
-            wumpus_count = 0
             for y in range(self.agent_y - 1, -1, -1):
                 if 'wumpus' in self.cave[y][self.agent_x]:
-                    wumpus_count += 1
                     self.update_cell(self.agent_x, y, 'wall')
-                    break  # Stop shooting when the first wumpus is hit
-            return wumpus_count
+                    return True
+            return False
 
     def shoot_right(self):
         if not self.game_over:
-            wumpus_count = 0
             for x in range(self.agent_x + 1, self.cave_size):
                 if 'wumpus' in self.cave[self.agent_y][x]:
-                    wumpus_count += 1
                     self.update_cell(x, self.agent_y, 'wall')
-                    break  # Stop shooting when the first wumpus is hit
-            return wumpus_count
+                    return True
+            return False
 
     def shoot_down(self):
         if not self.game_over:
-            wumpus_count = 0
             for y in range(self.agent_y + 1, self.cave_size):
                 if 'wumpus' in self.cave[y][self.agent_x]:
-                    wumpus_count += 1
                     self.update_cell(self.agent_x, y, 'wall')
-                    break  # Stop shooting when the first wumpus is hit
-            return wumpus_count
+                    return True
+            return False
 
 if __name__ == "__main__":
     filename = os.path.join('caves', '10x10-1.cave')
@@ -234,13 +227,21 @@ if __name__ == "__main__":
         elif user_input == 'd':
             game.move_right()
         elif user_input == 'sw':
-            print("You hear this many squeals: " + str(game.shoot_up()))
+            if (game.shoot_up):
+                print("You hear a squeel")
+            else: print("You miss and are down an arrow.")
         elif user_input == 'sa':
-            print("You hear this many squeals: " + str(game.shoot_left()))
+            if (game.shoot_left):
+                print("You hear a squeel")
+            else: print("You miss and are down an arrow.")
         elif user_input == 'ss':
-            print("You hear this many squeals: " + str(game.shoot_down()))
+            if (game.shoot_down):
+                print("You hear a squeel")
+            else: print("You miss and are down an arrow.")
         elif user_input == 'sd':
-            print("You hear this many squeals: " + str(game.shoot_right()))
+            if (game.shoot_right):
+                print("You hear a squeel")
+            else: print("You miss and are down an arrow.")
         elif user_input == 'q':
             break  # Quit the game
         else:
