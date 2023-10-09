@@ -18,14 +18,17 @@ class WumpusWorld:
         with open(self.filename, 'r') as file:
             lines = file.readlines()
             header_parts = lines[0].strip().split(',')
-            self.num_safe = 0
-            self.num_wumpus = 0
+            self.num_wumpus = int(header_parts[1].strip(" Number of Wumpus: "))
+            self.num_arrows = int(header_parts[1].strip(" Number of Wumpus: "))
+            temp = header_parts[2].strip(" Number of safe: ")
+            self.num_safe = str(temp)
+
 
             for part in header_parts:
                 if 'Cave Size' in part:
                     cave_size_part = part.split(':')[1].strip()
                     self.cave_size = int(cave_size_part.split('x')[0])  # Set cave size
-                    self.num_safe = int(cave_size_part.split('x')[1])
+                    # self.num_safe = int(cave_size_part.split('x')[1])     #idk what I was thinking this line confused me for a good 15 minutes
 
             self.cave = [[[] for _ in range(self.cave_size)] for _ in range(self.cave_size)]
 
@@ -53,18 +56,19 @@ class WumpusWorld:
                         formatted_cell = "[G]"
                     elif 'wumpus' in item:
                         formatted_cell = "[>]"
-                    # elif 'stench' in item:                #If you want to see stench and breeze these are here but I don't
-                    #     formatted_cell = "[?]"
-                    # elif 'breeze' in item:
-                    #     formatted_cell = "[~]"
                     elif 'wall' in item:
                         formatted_cell = "[W]"
-                if not formatted_cell:
-                    formatted_cell = "[ ]"  # Default for empty cell
+                    if not formatted_cell:
+                        formatted_cell = "[ ]"
                 if x == self.agent_x and y == self.agent_y:
-                    formatted_cell = "[a]"  # Agent position
+                    formatted_cell = "[a]"
                 formatted_row.append(formatted_cell)
             print("".join(formatted_row))
+        
+        print(f"Arrows remaining: {self.num_arrows}")
+        print(f"Wumpuses remaining: {self.num_wumpus}")
+        print(f"Safe spaces remaining: {self.num_safe}")
+
 
     def hit_wall(self, x, y):
         # Check if the specified cell contains a wall
@@ -179,43 +183,78 @@ class WumpusWorld:
             print("Invalid cell coordinates. Coordinates are out of bounds.")
 
     def shoot_left(self):
-        if not self.game_over:
-            for x in range(self.agent_x - 1, -1, -1):
-                if 'wumpus' in self.cave[self.agent_y][x]:
-                    self.update_cell(x, self.agent_y, 'wall')
-                    return True
-            return False
+        if self.num_arrows > 0:
+            self.num_arrows -= 1
+            x = self.agent_x - 1
+            while x >= 0:
+                print(f"Arrow moving through coordinates: ({x}, {self.agent_y})")
+                for item in self.cave[self.agent_y][x]:
+                    if 'wall' in item:
+                        return False  # Arrow hits a wall, return False
+                    if 'wumpus' in item:
+                        self.update_cell(x, self.agent_y, 'wall')  # Mark the wumpus as dead
+                        self.num_wumpus -= 1
+                        return True  # Return True when a wumpus is hit
+                x -= 1
+        return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
     def shoot_up(self):
-        if not self.game_over:
-            for y in range(self.agent_y - 1, -1, -1):
-                if 'wumpus' in self.cave[y][self.agent_x]:
-                    self.update_cell(self.agent_x, y, 'wall')
-                    return True
-            return False
+        if self.num_arrows > 0:
+            self.num_arrows -= 1
+            y = self.agent_y - 1
+            while y >= 0:
+                print(f"Arrow moving through coordinates: ({self.agent_x}, {y})")
+                for item in self.cave[y][self.agent_x]:
+                    if 'wall' in item:
+                        return False  # Arrow hits a wall, return False
+                    if 'wumpus' in item:
+                        self.update_cell(self.agent_x, y, 'wall')  # Mark the wumpus as dead
+                        self.num_wumpus -= 1
+                        return True  # Return True when a wumpus is hit
+                y -= 1
+        return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
     def shoot_right(self):
-        if not self.game_over:
-            for x in range(self.agent_x + 1, self.cave_size):
-                if 'wumpus' in self.cave[self.agent_y][x]:
-                    self.update_cell(x, self.agent_y, 'wall')
-                    return True
-            return False
+        if self.num_arrows > 0:
+            self.num_arrows -= 1
+            x = self.agent_x + 1
+            while x < self.cave_size:
+                print(f"Arrow moving through coordinates: ({x}, {self.agent_y})")
+                for item in self.cave[self.agent_y][x]:
+                    if 'wall' in item:
+                        return False  # Arrow hits a wall, return False
+                    if 'wumpus' in item:
+                        self.update_cell(x, self.agent_y, 'wall')  # Mark the wumpus as dead
+                        self.num_wumpus -= 1
+                        return True  # Return True when a wumpus is hit
+                x += 1
+        return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
     def shoot_down(self):
-        if not self.game_over:
-            for y in range(self.agent_y + 1, self.cave_size):
-                if 'wumpus' in self.cave[y][self.agent_x]:
-                    self.update_cell(self.agent_x, y, 'wall')
-                    return True
-            return False
+        if self.num_arrows > 0:
+            self.num_arrows -= 1
+            y = self.agent_y + 1
+            while y < self.cave_size:
+                print(f"Arrow moving through coordinates: ({self.agent_x}, {y})")
+                for item in self.cave[y][self.agent_x]:
+                    if 'wall' in item:
+                        return False  # Arrow hits a wall, return False
+                    if 'wumpus' in item:
+                        self.update_cell(self.agent_x, y, 'wall')  # Mark the wumpus as dead
+                        self.num_wumpus -= 1
+                        return True  # Return True when a wumpus is hit
+                y += 1
+        return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
 if __name__ == "__main__":
     filename = os.path.join('caves', '10x10-1.cave')
     game = WumpusWorld(filename)
-    game.print_formatted_board()
 
     while not game.is_game_over():
+        game.print_formatted_board()
+        print(f"Agent coordinates: ({game.get_agent_coordinates()[0]}, {game.get_agent_coordinates()[1]})")
+        # print(game.debug(2,9))
+
         user_input = input("Enter 'w' to move up, 'a' to move left, 's' to move down, 'd' to move right, or 'q' to quit: ")
 
         if user_input == 'w':
@@ -227,33 +266,30 @@ if __name__ == "__main__":
         elif user_input == 'd':
             game.move_right()
         elif user_input == 'sw':
-            if (game.shoot_up):
-                print("You hear a squeel")
-            else: print("You miss and are down an arrow.")
+            if game.shoot_up():  
+                print("You hear a squeal")
+            else:
+                print("You miss and are down an arrow.")
         elif user_input == 'sa':
-            if (game.shoot_left):
-                print("You hear a squeel")
-            else: print("You miss and are down an arrow.")
+            if game.shoot_left():  
+                print("You hear a squeal")
+            else:
+                print("You miss and are down an arrow.")
         elif user_input == 'ss':
-            if (game.shoot_down):
-                print("You hear a squeel")
-            else: print("You miss and are down an arrow.")
+            if game.shoot_down():  
+                print("You hear a squeal")
+            else:
+                print("You miss and are down an arrow.")
         elif user_input == 'sd':
-            if (game.shoot_right):
-                print("You hear a squeel")
-            else: print("You miss and are down an arrow.")
+            if game.shoot_right():  
+                print("You hear a squeal")
+            else:
+                print("You miss and are down an arrow.")
         elif user_input == 'q':
             break  # Quit the game
         else:
             print("Invalid input. Please enter 'w', 'a', 's', 'd', or 'q'.")
 
-        game.print_formatted_board()
+    game.print_formatted_board()
+    print(f"Agent coordinates: ({game.get_agent_coordinates()[0]}, {game.get_agent_coordinates()[1]})")
 
-        # Check for stench and breeze and inform the player
-        if game.is_stench():
-            print("You smell a stench!")
-        if game.is_breeze():
-            print("You feel a breeze!")
-
-    # game.teleport_agent(x, y)
-    # game.get_agent_coordinates()
