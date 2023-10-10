@@ -1,4 +1,5 @@
 import os
+import random
 
 class WumpusWorld:
     def __init__(self, filename):
@@ -37,7 +38,7 @@ class WumpusWorld:
                 for j in range(len(row)):
                     self.cave[i-1][j] = row[j].split(',')
 
-    def debug(self, x, y):
+    def get_percept(self, x, y):
         if 0 <= x < len(self.cave) and 0 <= y < len(self.cave):
             values = self.cave[y][x]
             print(f'Values at coordinates ({x}, {y}): {", ".join(values)}')
@@ -246,50 +247,122 @@ class WumpusWorld:
                 y += 1
         return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
+class FOLEngine:
+    def __init__(self):
+        self.knowledge_base = []
+
+    def tell(self, sentence):
+        self.knowledge_base.append(sentence)
+
+    def ask(self, query):
+        for sentence in self.knowledge_base:
+            if self.satisfies(sentence, query):
+                return True
+        return False
+
+    def satisfies(self, sentence, query):
+        # Implement the logic for checking if a sentence satisfies a query
+        if sentence == query:
+            return True
+        return False
+
+    def unify(self, var, x, substitution):
+        if var in substitution:
+            return self.unify(substitution[var], x, substitution)
+        elif x in substitution:
+            return self.unify(var, substitution[x], substitution)
+        elif var != x:
+            substitution[var] = x
+            return substitution
+        return substitution
+
+class Agent:
+    def __init__(self, engine):
+        self.engine = engine
+        self.percepts = []
+
+    def perceive(self, percept):
+        for item in percept:
+            # Check if the specified cell contains a 'pit' or a 'wumpus'
+            self.percepts.append(item)
+
+    def decide(self):
+        # Make decisions based on percepts and agent's knowledge
+        for percept in self.percepts:
+            if "stench" in percept:
+                rule = "Wumpus nearby"  # Example rule: If there's a stench, there might be a Wumpus nearby
+                self.engine.tell(rule)
+            elif "breeze" in percept:
+                rule = "Pit nearby"  # Example rule: If there's a breeze, there might be a pit nearby
+                self.engine.tell(rule)
+            elif "glitter" in percept:
+                rule = "Gold nearby"  # Example rule: If there's a glitter, there might be gold nearby
+                self.engine.tell(rule)
+
+    def get_action(self):
+        # Implement agent's action selection logic here
+        # For simplicity, let's assume the agent moves randomly (without reasoning)
+
+        possible_actions = ["move_up", "move_down", "move_left", "move_right"]
+
+        # Randomly select an action
+        selected_action = random.choice(possible_actions)
+
+        return selected_action
+
+class KnowledgeBase:
+    def __init__(self):
+        self.knowledge = []
+
+    def add_knowledge(self, sentence):
+        self.knowledge.append(sentence)
+
+    def query(self, query):
+        for sentence in self.knowledge:
+            if self.unify(query, sentence):
+                return True
+        return False
+
+    def unify(self, var, x, substitution):
+        if var in substitution:
+            return self.unify(substitution[var], x, substitution)
+        elif x in substitution:
+            return self.unify(var, substitution[x], substitution)
+        elif var != x:
+            substitution[var] = x
+            return substitution
+        return substitution
+
 if __name__ == "__main__":
     filename = os.path.join('caves', '10x10-1.cave')
     game = WumpusWorld(filename)
+    engine = FOLEngine()
+    agent = Agent(engine)
+    knowledge_base = KnowledgeBase()
 
     while not game.is_game_over():
-        game.print_formatted_board()
-        print(f"Agent coordinates: ({game.get_agent_coordinates()[0]}, {game.get_agent_coordinates()[1]})")
-        # print(game.debug(2,9))
+        percept = game.get_percept(game.agent_x, game.agent_y)  # Get percept from the game
+        agent.perceive(percept)  # Update agent's knowledge based on percept
+        agent.decide()  # Make a decision based on agent's knowledge
+        action = agent.get_action()  # Get the agent's action
 
-        user_input = input("Enter 'w' to move up, 'a' to move left, 's' to move down, 'd' to move right, or 'q' to quit: ")
-
-        if user_input == 'w':
+        # Take the selected action in the game
+        if action == "move_up":
             game.move_up()
-        elif user_input == 'a':
-            game.move_left()
-        elif user_input == 's':
+        elif action == "move_down":
             game.move_down()
-        elif user_input == 'd':
+        elif action == "move_left":
+            game.move_left()
+        elif action == "move_right":
             game.move_right()
-        elif user_input == 'sw':
-            if game.shoot_up():  
-                print("You hear a squeal")
-            else:
-                print("You miss and are down an arrow.")
-        elif user_input == 'sa':
-            if game.shoot_left():  
-                print("You hear a squeal")
-            else:
-                print("You miss and are down an arrow.")
-        elif user_input == 'ss':
-            if game.shoot_down():  
-                print("You hear a squeal")
-            else:
-                print("You miss and are down an arrow.")
-        elif user_input == 'sd':
-            if game.shoot_right():  
-                print("You hear a squeal")
-            else:
-                print("You miss and are down an arrow.")
-        elif user_input == 'q':
-            break  # Quit the game
-        else:
-            print("Invalid input. Please enter 'w', 'a', 's', 'd', or 'q'.")
+        elif action == "shoot_up":
+            game.shoot_up()
+        elif action == "shoot_down":
+            game.shoot_down()
+        elif action == "shoot_left":
+            game.shoot_left()
+        elif action == "shoot_right":
+            game.shoot_right()
 
     game.print_formatted_board()
     print(f"Agent coordinates: ({game.get_agent_coordinates()[0]}, {game.get_agent_coordinates()[1]})")
-
