@@ -63,6 +63,12 @@ class KnowledgeBase:
                 if not resolvent or all(p.is_negated for p in resolvent):
                     return True
         return False
+    
+    def __str__(self):
+        for i in self.clauses:
+            print("".join(map(str, i)))
+        
+        return ""
 
 def main():
     kb = KnowledgeBase()
@@ -77,12 +83,15 @@ def main():
     kb.add_clause([Predicate("Cat", ["x"], is_negated=True), Predicate("Animal", ["x"])])
     # kb.add_clause([Predicate("Kills", ["Curiosity", "Tuna"], is_negated=True)])  # Adding the negated query
 
-    test_clause = [Predicate("Kills", ["Curiosity", "Tuna"], is_negated=False)]
+    test_clause = [Predicate("Kills", ["Curiosity", "Tuna"], is_negated=True)]
     # Check for inconsistency
     if kb.is_inconsistent(test_clause):
         print(f"{' and '.join(map(str, test_clause))} is consistent with the knowledge base.")
     else:
         print(f"{' and '.join(map(str, test_clause))} is inconsistent with the knowledge base.")
+
+    # print("Knowledge Base:")
+    # print(kb)
 
 if __name__ == "__main__":
     main()
