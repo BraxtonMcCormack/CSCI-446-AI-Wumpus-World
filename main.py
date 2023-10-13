@@ -78,7 +78,7 @@ class WumpusWorld:
         
         print(f"Arrows remaining: {self.num_arrows}")
         print(f"Wumpuses remaining: {self.num_wumpus}")
-        print(f"Safe spaces remaining: {self.num_safe}")
+        print(f"safe spaces remaining: {self.num_safe}")
 
 
     def hit_wall(self, x, y):
@@ -98,7 +98,7 @@ class WumpusWorld:
                 print("You encountered a wumpus and got eaten! Game over.")
                 self.game_over = True
 
-    def is_glitter(self, x, y):
+    def is_glimmer(self, x, y):
         for item in self.cave[y][x]:
             # Check if the specified cell contains a 'pit' or a 'wumpus'
             if 'glimmer' in item:
@@ -113,7 +113,7 @@ class WumpusWorld:
                 self.agent_y -= 1
                 self.cave[self.agent_y][self.agent_x].append('agent')
                 self.is_bad(self.agent_x, self.agent_y)  # Check if the new cell is bad
-                self.is_glitter(self.agent_x, self.agent_y)
+                self.is_glimmer(self.agent_x, self.agent_y)
 
     def move_down(self):
         if not self.game_over:
@@ -122,7 +122,7 @@ class WumpusWorld:
                 self.agent_y += 1
                 self.cave[self.agent_y][self.agent_x].append('agent')
                 self.is_bad(self.agent_x, self.agent_y)
-                self.is_glitter(self.agent_x, self.agent_y)
+                self.is_glimmer(self.agent_x, self.agent_y)
 
     def move_left(self):
         if not self.game_over:
@@ -131,7 +131,7 @@ class WumpusWorld:
                 self.agent_x -= 1
                 self.cave[self.agent_y][self.agent_x].append('agent')
                 self.is_bad(self.agent_x, self.agent_y)
-                self.is_glitter(self.agent_x, self.agent_y)
+                self.is_glimmer(self.agent_x, self.agent_y)
 
     def move_right(self):
         if not self.game_over:
@@ -140,7 +140,7 @@ class WumpusWorld:
                 self.agent_x += 1
                 self.cave[self.agent_y][self.agent_x].append('agent')
                 self.is_bad(self.agent_x, self.agent_y)
-                self.is_glitter(self.agent_x, self.agent_y)
+                self.is_glimmer(self.agent_x, self.agent_y)
 
     def __str__(self):
         result = f"Cave Size: {len(self.cave)}x{len(self.cave)}, Number of Wumpus: {self.num_wumpus}, Number of safe: {self.num_safe}\n"
@@ -348,18 +348,18 @@ class Agent:
     def update_kb(self):
         precepts = self.board.get_percept(self.location[0], self.location[1])
         for precept in precepts:
-            if precept == 'Stench':
-                self.kb.tell(Predicate('Stench', [self.location[0], self.location[1]]))
-            elif precept == 'Breeze':
-                self.kb.tell(Predicate('Breeze', [self.location[0], self.location[1]]))
-            elif precept == 'Glitter':
-                self.kb.tell(Predicate('Glitter', [self.location[0], self.location[1]]))
+            if precept == 'stench':
+                self.kb.tell(Predicate('stench', [self.location[0], self.location[1]]))
+            elif precept == 'breeze':
+                self.kb.tell(Predicate('breeze', [self.location[0], self.location[1]]))
+            elif precept == 'glimmer':
+                self.kb.tell(Predicate('glimmer', [self.location[0], self.location[1]]))
 
     def move(self, direction):
         if direction == 'up':
-            self.location = (self.location[0], self.location[1] + 1)
-        elif direction == 'down':
             self.location = (self.location[0], self.location[1] - 1)
+        elif direction == 'down':
+            self.location = (self.location[0], self.location[1] + 1)
         elif direction == 'left':
             self.location = (self.location[0] - 1, self.location[1])
         elif direction == 'right':
@@ -392,22 +392,24 @@ class Agent:
         self.num_arrows -= 1
 
     def make_safe_move(self):
-        # Check adjacent cells for 'Breeze' or 'Stench'
+        # Check adjacent cells for 'breeze' or 'stench'
         adjacent_cells = [
-            (self.location[0], self.location[1] + 1),  # Up
-            (self.location[0], self.location[1] - 1),  # Down
+            (self.location[0], self.location[1] - 1),  # Up
+            (self.location[0], self.location[1] + 1),  # Down
             (self.location[0] - 1, self.location[1]),  # Left
             (self.location[0] + 1, self.location[1])   # Right
         ]
 
         for adj_cell in adjacent_cells:
-            if not fol_resolution(self.kb, Predicate('Safe', [adj_cell[0], adj_cell[1]])):
-                if 'Breeze' in self.board.get_percept(adj_cell[0], adj_cell[1]) or 'Stench' in self.board.get_percept(adj_cell[0], adj_cell[1]):
-                    # It's not safe to move to the adjacent cell
-                    self.kb.tell(Predicate('NotSafe', [adj_cell[0], adj_cell[1]]))
+            if not fol_resolution(self.kb, Predicate('safe', [adj_cell[0], adj_cell[1]])):
+                # if 'breeze' in self.board.get_percept(adj_cell[0], adj_cell[1]) or 'stench' in self.board.get_percept(adj_cell[0], adj_cell[1]):
+                for item in self.board.get_percept(adj_cell[0], adj_cell[1]):
+                    if 'stench' or 'breeze' in item:
+                        # It's not safe to move to the adjacent cell
+                        self.kb.tell(Predicate('Notsafe', [adj_cell[0], adj_cell[1]]))
 
-        # Now, check if the current cell is marked as 'NotSafe'
-        if fol_resolution(self.kb, Predicate('NotSafe', [self.location[0], self.location[1]])):
+        # Now, check if the current cell is marked as 'Notsafe'
+        if fol_resolution(self.kb, Predicate('Notsafe', [self.location[0], self.location[1]])):
             print("Unsafe move detected! Avoiding...")
             # Implement logic to choose a safe move
 
@@ -418,11 +420,14 @@ class Agent:
 
     def explore(self):
         while True:
-            # 1. Check for Glitter (gold)
-            if 'Glitter' in self.board.get_percept(self.location[0], self.location[1]):
-                print("Agent found gold!")
-                # Implement code to grab the gold, then return to the entrance if necessary
-                return
+            print("Exploring")
+            # 1. Check for glimmer (gold)
+            # if 'glimmer' in self.board.get_percept(self.location[0], self.location[1]):
+            for item in self.board.get_percept(self.location[0], self.location[1]):
+                if 'glimmer' in item:
+                    print("Agent found gold!")
+                    # Implement code to grab the gold, then return to the entrance if necessary
+                    return
 
             # 2. Use logical inference to decide the next move
             next_move = self.decide_next_move()
@@ -440,11 +445,15 @@ class Agent:
     def decide_next_move(self):
         # Use logical inference to decide the next move
 
-        # Check for 'Stench' and 'Breeze' in the current location
-        if 'Stench' in self.board.get_percept(self.location[0], self.location[1]):
-            self.kb.tell(Predicate('Stench', [self.location[0], self.location[1]]))
-        if 'Breeze' in self.board.get_percept(self.location[0], self.location[1]):
-            self.kb.tell(Predicate('Breeze', [self.location[0], self.location[1]]))
+        # Check for 'stench' and 'breeze' in the current location
+        # if 'stench' in self.board.get_percept(self.location[0], self.location[1]):
+        for item in self.board.get_percept(self.location[0], self.location[1]):
+            if 'stench' in item:
+                self.kb.tell(Predicate('stench', [self.location[0], self.location[1]]))
+        # if 'breeze' in self.board.get_percept(self.location[0], self.location[1]):
+        for item in self.board.get_percept(self.location[0], self.location[1]):
+            if 'breeze' in item:
+                self.kb.tell(Predicate('breeze', [self.location[0], self.location[1]]))
 
         # Implement logical inference to determine the next move based on the agent's current knowledge.
         # This can involve resolution, goal-based reasoning, and other logical reasoning methods.
@@ -453,7 +462,8 @@ class Agent:
         safe_moves = []
         for move in ['up', 'down', 'left', 'right']:
             new_location = self.get_new_location(move)
-            query = Predicate('Safe', [new_location[0], new_location[1]])
+            board.print_formatted_board()
+            query = Predicate('safe', [new_location[0], new_location[1]])
             if fol_resolution(self.kb, query):
                 safe_moves.append(move)
 
@@ -465,10 +475,10 @@ class Agent:
     def get_new_location(self, direction):
         if direction == 'up':
             board.move_up()
-            return (self.location[0], self.location[1] + 1)
+            return (self.location[0], self.location[1] - 1)
         elif direction == 'down':
             board.move_down()
-            return (self.location[0], self.location[1] - 1)
+            return (self.location[0], self.location[1] + 1)
         elif direction == 'left':
             board.move_left()
             return (self.location[0] - 1, self.location[1])
