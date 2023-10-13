@@ -90,3 +90,6 @@ if __name__ == '__main__':
     
     print("\nResolution result:", result)
 
+    print("Updated Knowledge Base:")
+    for clause in kb.clauses:
+        print("∧".join(map(str, clause)))
