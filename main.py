@@ -14,6 +14,15 @@ class WumpusWorld:
         self.game_over = False  # Initialize game_over to False
         self.read_cave_file()
         self.place_agent_in_corner()
+    
+    def get_arrows(self):
+        return self.num_arrows
+    
+    def get_wumpus_count(self):
+        return self.num_wumpus
+    
+    def get_agent_coordinates(self):
+        return self.agent_x, self.agent_y
 
     def read_cave_file(self):
         with open(self.filename, 'r') as file:
@@ -41,7 +50,8 @@ class WumpusWorld:
     def get_percept(self, x, y):
         if 0 <= x < len(self.cave) and 0 <= y < len(self.cave):
             values = self.cave[y][x]
-            print(f'Values at coordinates ({x}, {y}): {", ".join(values)}')
+            return values
+            # print(f'Values at coordinates ({x}, {y}): {", ".join(values)}')
         else:
             print('Coordinates out of bounds.')
 
@@ -174,8 +184,6 @@ class WumpusWorld:
             else:
                 print("Invalid teleport coordinates. Coordinates are out of bounds.")
 
-    def get_agent_coordinates(self):
-        return self.agent_x, self.agent_y
     
     def update_cell(self, x, y, new_contents):
         if 0 <= x < self.cave_size and 0 <= y < self.cave_size:
@@ -247,122 +255,242 @@ class WumpusWorld:
                 y += 1
         return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
-class FOLEngine:
-    def __init__(self):
-        self.knowledge_base = []
+class Predicate:
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args
 
-    def tell(self, sentence):
-        self.knowledge_base.append(sentence)
+    def __str__(self):
+        return f"{self.name}({', '.join(map(str, self.args))}"
+
+    def __iter__(self):
+        return iter(self.args)
+
+class KB:
+    def __init__(self):
+        self.clauses = []
+
+    def tell(self, clause):
+        self.clauses.append(clause)
 
     def ask(self, query):
-        for sentence in self.knowledge_base:
-            if self.satisfies(sentence, query):
-                return True
-        return False
+        return query in self.clauses
 
-    def satisfies(self, sentence, query):
-        # Implement the logic for checking if a sentence satisfies a query
-        if sentence == query:
-            return True
-        return False
+def unify(subst, x, y):
+    if subst is None:
+        return None
+    elif x == y:
+        return subst
+    elif isinstance(x, str) and x.islower():
+        return unify_var(subst, x, y)
+    elif isinstance(y, str) and y.islower():
+        return unify_var(subst, y, x)
+    elif isinstance(x, Predicate) and isinstance(y, Predicate):
+        return unify(unify(subst, x.name, y.name), x.args, y.args)
+    elif isinstance(x, list) and isinstance(y, list) and len(x) == len(y):
+        if not x or not y:
+            return subst
+        return unify(unify(subst, x[0], y[0]), x[1:], y[1:])
+    else:
+        return None
 
-    def unify(self, var, x, substitution):
-        if var in substitution:
-            return self.unify(substitution[var], x, substitution)
-        elif x in substitution:
-            return self.unify(var, substitution[x], substitution)
-        elif var != x:
-            substitution[var] = x
-            return substitution
-        return substitution
+def unify_var(subst, var, x):
+    if var in subst:
+        return unify(subst, subst[var], x)
+    elif x in subst:
+        return unify(subst, var, subst[x])
+    else:
+        subst[var] = x
+        return subst
+
+def resolve(clause1, clause2):
+    resolvents = set()
+    for literal1 in clause1:
+        for literal2 in clause2:
+            subst = unify({}, literal1, negate(literal2))
+            if subst is not None:
+                resolvent = (clause1 | clause2) - {literal1, literal2}
+                resolvents.add(resolvent)
+    return resolvents
+
+def negate(literal):
+    if literal.name.startswith('~'):
+        return Predicate(literal.name[1:], literal.args)
+    else:
+        return Predicate('~' + literal.name, literal.args)
+
+def fol_resolution(kb, query):
+    new_clause = query
+    while True:
+        clauses = list(kb.clauses)
+        clauses.append(negate(new_clause))
+        new = set()
+        for i in range(len(clauses)):
+            for j in range(i + 1, len(clauses)):
+                resolvents = resolve(clauses[i], clauses[j])
+                if not resolvents:
+                    return True  # A contradiction has been found
+                new.update(resolvents)
+        if new.issubset(kb.clauses):
+            return False  # No new knowledge can be gained
+        kb.clauses.update(new)
 
 class Agent:
-    def __init__(self, engine):
-        self.engine = engine
-        self.percepts = []
+    def __init__(self, board, num_arrows, wumpus_locations, ax, ay):
+        self.board = board
+        self.num_arrows = num_arrows
+        self.kb = KB()
+        self.kb.tell(Predicate('HaveArrow', []))  # Provide an empty list of args
+        self.kb.tell(Predicate('WumpusAlive', []))  # Provide an empty list of args
+        self.wumpus_locations = []
+        self.location = (ax, ay)
 
-    def perceive(self, percept):
-        for item in percept:
-            # Check if the specified cell contains a 'pit' or a 'wumpus'
-            self.percepts.append(item)
+    def update_kb(self):
+        precepts = self.board.get_percept(self.location[0], self.location[1])
+        for precept in precepts:
+            if precept == 'Stench':
+                self.kb.tell(Predicate('Stench', [self.location[0], self.location[1]]))
+            elif precept == 'Breeze':
+                self.kb.tell(Predicate('Breeze', [self.location[0], self.location[1]]))
+            elif precept == 'Glitter':
+                self.kb.tell(Predicate('Glitter', [self.location[0], self.location[1]]))
 
-    def decide(self):
-        # Make decisions based on percepts and agent's knowledge
-        for percept in self.percepts:
-            if "stench" in percept:
-                rule = "Wumpus nearby"  # Example rule: If there's a stench, there might be a Wumpus nearby
-                self.engine.tell(rule)
-            elif "breeze" in percept:
-                rule = "Pit nearby"  # Example rule: If there's a breeze, there might be a pit nearby
-                self.engine.tell(rule)
-            elif "glitter" in percept:
-                rule = "Gold nearby"  # Example rule: If there's a glitter, there might be gold nearby
-                self.engine.tell(rule)
+    def move(self, direction):
+        if direction == 'up':
+            self.location = (self.location[0], self.location[1] + 1)
+        elif direction == 'down':
+            self.location = (self.location[0], self.location[1] - 1)
+        elif direction == 'left':
+            self.location = (self.location[0] - 1, self.location[1])
+        elif direction == 'right':
+            self.location = (self.location[0] + 1, self.location[1])
 
-    def get_action(self):
-        # Implement agent's action selection logic here
-        # For simplicity, let's assume the agent moves randomly (without reasoning)
+        self.update_kb()
+        self.make_safe_move()
 
-        possible_actions = ["move_up", "move_down", "move_left", "move_right"]
+    def shoot(self, direction):
+        if self.num_arrows <= 0:
+            return
 
-        # Randomly select an action
-        selected_action = random.choice(possible_actions)
+        if direction == 'up':
+            board.shoot_up()
+            # target_location = (self.location[0], self.location[1] + 1)
+        elif direction == 'down':
+            board.shoot_down()
+            # target_location = (self.location[0], self.location[1] - 1)
+        elif direction == 'left':
+            board.shoot_left()
+            # target_location = (self.location[0] - 1, self.location[1])
+        elif direction == 'right':
+            board.shoot_right()
+            # target_location = (self.location[0] + 1, self.location[1])
 
-        return selected_action
+        # if target_location in self.wumpus_locations:
+        #     self.kb.tell(Predicate('WumpusDead'))
+        #     self.wumpus_locations.remove(target_location)
+        
+        self.num_arrows -= 1
 
-class KnowledgeBase:
-    def __init__(self):
-        self.knowledge = []
+    def make_safe_move(self):
+        # Check adjacent cells for 'Breeze' or 'Stench'
+        adjacent_cells = [
+            (self.location[0], self.location[1] + 1),  # Up
+            (self.location[0], self.location[1] - 1),  # Down
+            (self.location[0] - 1, self.location[1]),  # Left
+            (self.location[0] + 1, self.location[1])   # Right
+        ]
 
-    def add_knowledge(self, sentence):
-        self.knowledge.append(sentence)
+        for adj_cell in adjacent_cells:
+            if not fol_resolution(self.kb, Predicate('Safe', [adj_cell[0], adj_cell[1]])):
+                if 'Breeze' in self.board.get_percept(adj_cell[0], adj_cell[1]) or 'Stench' in self.board.get_percept(adj_cell[0], adj_cell[1]):
+                    # It's not safe to move to the adjacent cell
+                    self.kb.tell(Predicate('NotSafe', [adj_cell[0], adj_cell[1]]))
 
-    def query(self, query):
-        for sentence in self.knowledge:
-            if self.unify(query, sentence):
-                return True
-        return False
+        # Now, check if the current cell is marked as 'NotSafe'
+        if fol_resolution(self.kb, Predicate('NotSafe', [self.location[0], self.location[1]])):
+            print("Unsafe move detected! Avoiding...")
+            # Implement logic to choose a safe move
 
-    def unify(self, var, x, substitution):
-        if var in substitution:
-            return self.unify(substitution[var], x, substitution)
-        elif x in substitution:
-            return self.unify(var, substitution[x], substitution)
-        elif var != x:
-            substitution[var] = x
-            return substitution
-        return substitution
+    def teleport(self, x, y):
+        self.location = (x, y)
+        self.update_kb()
+        self.make_safe_move()
 
+    def explore(self):
+        while True:
+            # 1. Check for Glitter (gold)
+            if 'Glitter' in self.board.get_percept(self.location[0], self.location[1]):
+                print("Agent found gold!")
+                # Implement code to grab the gold, then return to the entrance if necessary
+                return
+
+            # 2. Use logical inference to decide the next move
+            next_move = self.decide_next_move()
+
+            if next_move is None:
+                print("Agent cannot make a safe move. Exiting exploration.")
+                return
+
+            # 3. Execute the chosen move
+            if next_move.startswith('move'):
+                self.move(next_move.replace('move ', ''))
+            elif next_move.startswith('shoot'):
+                self.shoot(next_move.replace('shoot ', ''))
+
+    def decide_next_move(self):
+        # Use logical inference to decide the next move
+
+        # Check for 'Stench' and 'Breeze' in the current location
+        if 'Stench' in self.board.get_percept(self.location[0], self.location[1]):
+            self.kb.tell(Predicate('Stench', [self.location[0], self.location[1]]))
+        if 'Breeze' in self.board.get_percept(self.location[0], self.location[1]):
+            self.kb.tell(Predicate('Breeze', [self.location[0], self.location[1]]))
+
+        # Implement logical inference to determine the next move based on the agent's current knowledge.
+        # This can involve resolution, goal-based reasoning, and other logical reasoning methods.
+
+        # For example, check if there is a safe move based on the current knowledge.
+        safe_moves = []
+        for move in ['up', 'down', 'left', 'right']:
+            new_location = self.get_new_location(move)
+            query = Predicate('Safe', [new_location[0], new_location[1]])
+            if fol_resolution(self.kb, query):
+                safe_moves.append(move)
+
+        if safe_moves:
+            return safe_moves[0]  # Choose the first safe move
+        else:
+            return None  # No safe move is found, consider backtracking or other strategies
+
+    def get_new_location(self, direction):
+        if direction == 'up':
+            board.move_up()
+            return (self.location[0], self.location[1] + 1)
+        elif direction == 'down':
+            board.move_down()
+            return (self.location[0], self.location[1] - 1)
+        elif direction == 'left':
+            board.move_left()
+            return (self.location[0] - 1, self.location[1])
+        elif direction == 'right':
+            board.move_right()
+            return (self.location[0] + 1, self.location[1])
+        
 if __name__ == "__main__":
+    # Define the Wumpus World environment
+    # You need to create a 'Board' class or similar to represent the environment
+    # and define methods like 'move', 'shoot', 'get_percept', and 'teleport'.
+
+    # Initialize the Wumpus World board (replace with your own 'Board' class)
     filename = os.path.join('caves', '10x10-1.cave')
-    game = WumpusWorld(filename)
-    engine = FOLEngine()
-    agent = Agent(engine)
-    knowledge_base = KnowledgeBase()
+    board = WumpusWorld(filename)
 
-    while not game.is_game_over():
-        percept = game.get_percept(game.agent_x, game.agent_y)  # Get percept from the game
-        agent.perceive(percept)  # Update agent's knowledge based on percept
-        agent.decide()  # Make a decision based on agent's knowledge
-        action = agent.get_action()  # Get the agent's action
+    ax, ay = board.get_agent_coordinates()
+    num_arrows = board.get_arrows()
+    wumpus_locations = []  # for when I was trying to teach the agent to hunt the wumpus
 
-        # Take the selected action in the game
-        if action == "move_up":
-            game.move_up()
-        elif action == "move_down":
-            game.move_down()
-        elif action == "move_left":
-            game.move_left()
-        elif action == "move_right":
-            game.move_right()
-        elif action == "shoot_up":
-            game.shoot_up()
-        elif action == "shoot_down":
-            game.shoot_down()
-        elif action == "shoot_left":
-            game.shoot_left()
-        elif action == "shoot_right":
-            game.shoot_right()
+    # Create the agent
+    agent = Agent(board, num_arrows, wumpus_locations, ax, ay)
 
-    game.print_formatted_board()
-    print(f"Agent coordinates: ({game.get_agent_coordinates()[0]}, {game.get_agent_coordinates()[1]})")
+    # Start the exploration
+    agent.explore()
