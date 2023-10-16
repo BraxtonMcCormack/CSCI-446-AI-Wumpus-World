@@ -18,6 +18,9 @@ class WumpusWorld:
     def get_size(self):
         return self.cave_size-1
     
+    def get_safe(self):
+        return self.num_safe
+    
     def get_arrows(self):
         return self.num_arrows
     
@@ -213,8 +216,8 @@ class WumpusWorld:
     def shoot_up(self):
         if self.num_arrows > 0:
             self.num_arrows -= 1
-            y = self.agent_y - 1
-            while y >= 0:
+            y = self.agent_y + 1
+            while y <= 0:
                 print(f"Arrow moving through coordinates: ({self.agent_x}, {y})")
                 for item in self.cave[y][self.agent_x]:
                     if 'wall' in item:
@@ -223,7 +226,7 @@ class WumpusWorld:
                         self.update_cell(self.agent_x, y, 'wall')  # Mark the wumpus as dead
                         self.num_wumpus -= 1
                         return True  # Return True when a wumpus is hit
-                y -= 1
+                y += 1
         return False  # Return False when the arrow misses the wumpus or goes out of bounds
 
     def shoot_right(self):
@@ -245,8 +248,8 @@ class WumpusWorld:
     def shoot_down(self):
         if self.num_arrows > 0:
             self.num_arrows -= 1
-            y = self.agent_y + 1
-            while y < self.cave_size:
+            y = self.agent_y - 1
+            while y >= self.cave_size:
                 print(f"Arrow moving through coordinates: ({self.agent_x}, {y})")
                 for item in self.cave[y][self.agent_x]:
                     if 'wall' in item:
@@ -255,10 +258,8 @@ class WumpusWorld:
                         self.update_cell(self.agent_x, y, 'wall')  # Mark the wumpus as dead
                         self.num_wumpus -= 1
                         return True  # Return True when a wumpus is hit
-                y += 1
+                y -= 1
         return False  # Return False when the arrow misses the wumpus or goes out of bounds
-
-
 
 class Predicate:
     def __init__(self, name, args, is_negated=False):
@@ -367,7 +368,7 @@ class Agent:
         print(f"Agent's current position: ({self.ax}, {self.ay})")
         print(f"Percepts at position ({self.ax}, {self.ay}): {percepts}")
         for item in percepts:
-            print(item)
+            # print(item)
             
             if 'wall' in item:
                 self.kb.add_clause([Predicate("Wall", [self.ax, self.ay])])
@@ -415,9 +416,11 @@ class Agent:
                     self.kb.add_clause([Predicate(entity_type, [loc[0], loc[1]])])
             
             if 'stench' in item:
+                self.kb.add_clause([Predicate("Stench", [self.ax, self.ay])])
                 handle_smell_or_breeze('Stench', 'Wumpus')
             
             if 'breeze' in item:
+                self.kb.add_clause([Predicate("Breeze", [self.ax, self.ay])])
                 handle_smell_or_breeze('Breeze', 'Pit')
 
             print(f"Knowledge base after processing percepts:")
@@ -493,7 +496,7 @@ class Agent:
         else:
             print("Invalid teleport coordinates!")
 
-    def explore(self):
+    def run(self):
         while not self.game_over:
             self.observe()
             if not self.game_over:  # Check if game over after observing
@@ -507,6 +510,7 @@ class Agent:
 
 
 
+
 def main():
     filename = os.path.join('caves', '10x10-1.cave')
     kb = KnowledgeBase()
@@ -515,7 +519,7 @@ def main():
     # for item in world.get_percept(0,9):
     #     print(item)
 
-    agent.explore()
+    agent.run()
 
     
 
