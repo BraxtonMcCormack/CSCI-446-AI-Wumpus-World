@@ -1,6 +1,6 @@
 Cave Size: 5x5, Number of Wumpus: 0, Number of safe: 22
-[['safe'],['safe'],['safe', 'breeze'],['pit'],['gold', 'glimmer']]
-[['safe'],['safe'],['safe'],['safe', 'breeze'],['pit']]
+[['safe'],['safe'],['safe'],['safe'],['safe']]
+[['safe'],['safe'],['safe'],['safe'],['safe']]
 [['safe'],['safe'],['safe'],['safe'],['safe', 'breeze']]
-[['safe'],['safe'],['safe'],['safe'],['safe']]
-[['safe'],['safe'],['safe'],['safe'],['safe']]
+[['safe'],['safe'],['safe'],['safe', 'breeze'],['pit']]
+[['safe'],['safe'],['safe', 'breeze'],['pit'],['gold', 'glimmer', 'breeze']]

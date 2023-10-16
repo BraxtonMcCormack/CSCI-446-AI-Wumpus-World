@@ -158,7 +158,7 @@ class WumpusWorld:
     def place_agent_in_corner(self):
         # Place the agent in the bottom-right corner of the board
         self.agent_x = 0
-        self.agent_y = self.cave_size - 1
+        self.agent_y = 0 #self.cave_size - 1
 
     def is_game_over(self):
         return self.game_over  # A method that returns the game over variable
@@ -357,86 +357,139 @@ class Agent:
         self.maxY = world.get_size()
         self.minXandY = 0
         self.game_over = False
+        self.stenches = []  
+        self.breezes = []
+        self.visited = set()
+        self.strict_safety_mode = True
 
     def observe(self):
         percepts = self.world.get_percept(self.ax, self.ay)
-        
-        if 'safe' in percepts:
-            self.kb.add_clause([Predicate("Safe", [self.ax, self.ay]), Predicate("Pit", [self.ax, self.ay], is_negated=True), Predicate("Wumpus", [self.ax, self.ay], is_negated=True)])
-            self.kb.add_clause([Predicate("Safe", [self.ax + 1, self.ay])])
-            self.kb.add_clause([Predicate("Safe", [self.ax - 1, self.ay])])
-            self.kb.add_clause([Predicate("Safe", [self.ax, self.ay + 1])])
-            self.kb.add_clause([Predicate("Safe", [self.ax, self.ay - 1])])
-
-        if 'stench' in percepts:
-            # Add current location to stenches if not already added
-            if (self.ax, self.ay) not in self.stenches:
-                self.stenches.append((self.ax, self.ay))
-
-            # Check if we can pinpoint Wumpus
-            for x, y in self.stenches:
-                # If the current stench is adjacent to a previous stench, then we can deduce Wumpus' position
-                if abs(self.ax - x) + abs(self.ay - y) == 1:  # Check if cells are adjacent
-                    if self.ax == x:
-                        wumpus_location = (self.ax, (self.ay + y) // 2)
-                    else:
-                        wumpus_location = ((self.ax + x) // 2, self.ay)
-                    self.kb.add_clause([Predicate("Wumpus", list(wumpus_location))])
-
-        if 'breeze' in percepts:
-            # This means a pit is in a neighboring cell
-            self.kb.add_clause([Predicate("Pit", [self.ax + 1, self.ay])])
-            self.kb.add_clause([Predicate("Pit", [self.ax - 1, self.ay])])
-            self.kb.add_clause([Predicate("Pit", [self.ax, self.ay + 1])])
-            self.kb.add_clause([Predicate("Pit", [self.ax, self.ay - 1])])
-
-        if 'glimmer' in percepts:
-            print("Found gold! Win!")
-            self.game_over = True
-            return
-        
-        if 'pit' in percepts:
-            print("Fell into a pit! Loss!")
-            self.game_over = True
-            return
-
-        if 'wumpus' in percepts:
-            print("Eaten by the Wumpus! Loss!")
-            self.game_over = True
-            return
+        print(f"Agent's current position: ({self.ax}, {self.ay})")
+        print(f"Percepts at position ({self.ax}, {self.ay}): {percepts}")
+        for item in percepts:
+            print(item)
             
-    def think(self):
-        if self.kb.is_consistent([Predicate("Wumpus", [self.ax + 1, self.ay])]):
-            print("Wumpus might be on the right!")
+            if 'wall' in item:
+                self.kb.add_clause([Predicate("Wall", [self.ax, self.ay])])
 
-        # If current location is considered safe, explore the surroundings
-        if self.kb.is_consistent([Predicate("Safe", [self.ax, self.ay])]):
-            # Check each direction for a safe spot
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-            random.shuffle(directions)  # To add some randomness to the exploration
-            for dx, dy in directions:
-                new_x, new_y = self.ax + dx, self.ay + dy
-                if 0 <= new_x < self.maxX and 0 <= new_y < self.maxY:  # Check boundaries
-                    if self.kb.is_consistent([Predicate("Safe", [new_x, new_y])]):
-                        self.move_to(new_x, new_y)
-                        return
-
-        # If no safe spots found in the surroundings, teleport to a new random location
-        while True:
-            new_x = random.randint(self.minXandY, self.maxX-1)
-            new_y = random.randint(self.minXandY, self.maxY-1)
-            if (new_x, new_y) != (self.ax, self.ay):
-                self.move_to(new_x, new_y)
+            if 'glimmer' in item:
+                print("Found gold! Win!")
+                self.kb.add_clause([Predicate("Gold", [self.ax, self.ay])])
+                self.game_over = True
                 return
+
+            if 'safe' in item:
+                self.kb.add_clause([Predicate("Safe", [self.ax, self.ay]), Predicate("Pit", [self.ax, self.ay], is_negated=True), Predicate("Wumpus", [self.ax, self.ay], is_negated=True)])
+                if (self.kb.is_consistent([Predicate("Wumpus", [self.ax, self.ay])]) == False):
+                    if (self.kb.is_consistent([Predicate("Pit", [self.ax, self.ay])]) == False):
+                        if (self.kb.is_consistent([Predicate("Breeze", [self.ax, self.ay])]) == False):
+                            if (self.kb.is_consistent([Predicate("Stench", [self.ax, self.ay])]) == False):
+                                if (self.kb.is_consistent([Predicate("Wall", [self.ax, self.ay])]) == False):
+                                    self.kb.add_clause([Predicate("Safe", [self.ax + 1, self.ay])])
+                                    self.kb.add_clause([Predicate("Safe", [self.ax - 1, self.ay])])
+                                    self.kb.add_clause([Predicate("Safe", [self.ax, self.ay + 1])])
+                                    self.kb.add_clause([Predicate("Safe", [self.ax, self.ay - 1])])
+
+            if 'pit' in item:
+                print("Fell into a pit! Loss!")
+                self.game_over = True
+                return
+
+            if 'wumpus' in item:
+                print("Eaten by the Wumpus! Loss!")
+                self.game_over = True
+                return
+
+            # Common logic for handling stenches and breezes
+            def handle_smell_or_breeze(smell_type, entity_type):
+                print(f"{smell_type} detected! Considering possible {entity_type} positions...")
+                possible_entity_locations = []
+                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                    adjacent_x, adjacent_y = self.ax + dx, self.ay + dy
+                    if self._is_valid_coordinate(adjacent_x, adjacent_y) and \
+                    not self.kb.is_consistent([Predicate("Safe", [adjacent_x, adjacent_y])]) and \
+                    (adjacent_x, adjacent_y) not in self.visited:
+                        self.kb.add_clause([Predicate(entity_type, [adjacent_x, adjacent_y], is_negated=True)])
+                        self.visited.add((adjacent_x, adjacent_y)) # mark as visited to avoid loops
+                for loc in possible_entity_locations:
+                    self.kb.add_clause([Predicate(entity_type, [loc[0], loc[1]])])
+            
+            if 'stench' in item:
+                handle_smell_or_breeze('Stench', 'Wumpus')
+            
+            if 'breeze' in item:
+                handle_smell_or_breeze('Breeze', 'Pit')
+
+            print(f"Knowledge base after processing percepts:")
+            self.kb.reveal()
+        
+
+    def _is_valid_coordinate(self, x, y):
+        return 0 <= x < self.maxX and 0 <= y < self.maxY    
+         
+    def rank_risks(self, x, y):
+        risk_score = 0
+
+        # Check if the position is explicitly marked as safe
+        if not self.kb.is_consistent([Predicate("Safe", [x, y])]):
+            risk_score += 1000  # high value for cells that are not known to be safe
+
+        if self.kb.is_consistent([Predicate("Wumpus", [x, y])]):
+            risk_score += 100
+        if self.kb.is_consistent([Predicate("Pit", [x, y])]):
+            risk_score += 5
+        if self.kb.is_consistent([Predicate("Wall", [x, y])]):
+            risk_score += 100
+
+        return risk_score
+
+    def think(self):
+        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        random.shuffle(directions)
+
+        safe_moves = []
+        risky_moves = []
+
+        for dx, dy in directions:
+            new_x, new_y = self.ax + dx, self.ay + dy
+            if self._is_valid_coordinate(new_x, new_y) and (new_x, new_y) not in self.visited:
+                risk = self.rank_risks(new_x, new_y)
+                if risk == 0:
+                    safe_moves.append((new_x, new_y))
+                elif not self.strict_safety_mode and risk < 10:  # Check for strict_safety_mode here
+                    risky_moves.append((new_x, new_y))
+
+        if safe_moves:
+            move = random.choice(safe_moves)
+            self.move_to(move[0], move[1])
+        elif risky_moves:
+            # Sorting risky moves by risk score and choosing the least risky
+            sorted_risky_moves = sorted(risky_moves, key=lambda coord: self.rank_risks(coord[0], coord[1]))
+            move = sorted_risky_moves[0]
+            self.move_to(move[0], move[1])
+            print(f"Took a calculated risk by moving to ({move[0]}, {move[1]})")
+        else:
+            self.teleport_randomly()
+
+    def teleport_randomly(self):
+        valid_positions = [(x, y) for x in range(self.maxX) for y in range(self.maxY)]
+        random.shuffle(valid_positions)
+        for x, y in valid_positions:
+            if (x, y) not in self.visited:
+                self.move_to(x, y)
+                return
+        print("No valid positions to teleport!")
 
     def move_to(self, new_x, new_y):
         self.ax, self.ay = new_x, new_y
-        print(f"Teleported to ({self.ax}, {self.ay})")
+        self.visited.add((new_x, new_y))
+        print(f"Moved to ({self.ax}, {self.ay})")
     
     def teleport(self, x, y):
         if self.minXandY <= x < self.maxX and self.minXandY <= y < self.maxY:
             self.ax = x
             self.ay = y
+            print(f"Teleported to ({self.ax}, {self.ay})")
         else:
             print("Invalid teleport coordinates!")
 
@@ -445,10 +498,13 @@ class Agent:
             self.observe()
             if not self.game_over:  # Check if game over after observing
                 self.think()
-
-            # Here, add logic to decide movements or taking actions based on KB and percepts
             
-            # break
+            # self.game_over = True
+
+        # print(self.kb.reveal())
+        # percepts = self.world.get_percept(0, 1)
+        # print(percepts)
+
 
 
 def main():
