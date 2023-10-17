@@ -1,0 +1,20 @@
+1. Kills(Curiosity, Jack):
+- Expected Result: Inconsistent with the knowledge base.
+
+2. Cat(Jack):
+- Expected Result: Consistent with the knowledge base.
+
+3. ¬Loves(z, Tuna) (Some z doesn't love Tuna):
+- Expected Result: Inconsistent with the knowledge base.
+
+4. Loves(Tuna, Jack):
+- Expected Result: Inconsistent with the knowledge base.
+
+5. Loves(Jack, w):
+- Expected Result: Inconsistent with the knowledge base.
+
+6. ¬Cat(Tuna) (Tuna is not a cat):
+- Expected Result: Inconsistent with the knowledge base.
+
+7. Kills(u, Curiosity):
+- Expected Result: Inconsistent with the knowledge base.

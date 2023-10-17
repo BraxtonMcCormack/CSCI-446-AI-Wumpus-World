@@ -6,7 +6,7 @@ class Predicate:
 
     def __str__(self):
         negation = "¬" if self.is_negated else ""
-        return f"{negation}{self.name}({', '.join(self.args)})"
+        return f"{negation}{self.name}({', '.join(map(str, self.args))})" # Convert args to string format
 
 class KnowledgeBase:
     def __init__(self):
@@ -39,12 +39,16 @@ class KnowledgeBase:
         if pred1.name != pred2.name or pred1.is_negated == pred2.is_negated:
             return None
         for arg1, arg2 in zip(pred1.args, pred2.args):
+            # Check if the arguments are strings and lowercased (i.e., variables)
+            is_arg1_var = isinstance(arg1, str) and arg1.islower()
+            is_arg2_var = isinstance(arg2, str) and arg2.islower()
+
             if arg1 != arg2:
-                if arg1.islower() and arg2.islower():
+                if is_arg1_var and is_arg2_var:
                     substitution[arg1] = arg2
-                elif arg1.islower():
+                elif is_arg1_var:
                     substitution[arg1] = arg2
-                elif arg2.islower():
+                elif is_arg2_var:
                     substitution[arg2] = arg1
                 else:
                     return None
@@ -55,14 +59,14 @@ class KnowledgeBase:
         new_args = [substitution[arg] if arg in substitution else arg for arg in predicate.args]
         return Predicate(predicate.name, new_args, predicate.is_negated)
 
-    def is_inconsistent(self, new_clause):
+    def is_consistent(self, new_clause):
         # Check if a new clause is inconsistent with the knowledge base
         for clause in self.clauses:
             resolvent = self.resolve(clause, new_clause)
             if resolvent is not None:
                 if not resolvent or all(p.is_negated for p in resolvent):
-                    return True
-        return False
+                    return False
+        return True
     
     def __str__(self):
         for i in self.clauses:
@@ -83,15 +87,21 @@ def main():
     kb.add_clause([Predicate("Cat", ["x"], is_negated=True), Predicate("Animal", ["x"])])
     # kb.add_clause([Predicate("Kills", ["Curiosity", "Tuna"], is_negated=True)])  # Adding the negated query
 
-    test_clause = [Predicate("Kills", ["Curiosity", "Tuna"], is_negated=True)]
-    # Check for inconsistency
-    if kb.is_inconsistent(test_clause):
-        print(f"{' and '.join(map(str, test_clause))} is consistent with the knowledge base.")
-    else:
-        print(f"{' and '.join(map(str, test_clause))} is inconsistent with the knowledge base.")
+    test_clauses_examples = [
+        [Predicate("Kills", ["Curiosity", "Jack"])],
+        [Predicate("Cat", ["Jack"])],
+        [Predicate("Loves", ["z", "Tuna"], is_negated=True)],
+        [Predicate("Loves", ["Tuna", "Jack"])],
+        [Predicate("Loves", ["Jack", "w"])],
+        [Predicate("Cat", ["Tuna"], is_negated=True)],
+        [Predicate("Kills", ["u", "Curiosity"])]
+    ]
 
-    # print("Knowledge Base:")
-    # print(kb)
+    for test_clause in test_clauses_examples:
+        if kb.is_consistent(test_clause):
+            print(f"{' and '.join(map(str, test_clause))} is consistent with the knowledge base.")
+        else:
+            print(f"{' and '.join(map(str, test_clause))} is inconsistent with the knowledge base.")
 
 if __name__ == "__main__":
     main()
